@@ -20,8 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/crossplane-contrib/provider-gcp/pkg/utils/predicate"
 	iamv1 "google.golang.org/api/iam/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
@@ -68,10 +70,15 @@ func SetupServiceAccount(mgr ctrl.Manager, o controller.Options) error {
 		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
 		managed.WithConnectionPublishers(cps...))
 
+	p, err := predicate.SetupPredicate()
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		WithOptions(o.ForControllerRuntime()).
-		For(&v1alpha1.ServiceAccount{}).
+		For(&v1alpha1.ServiceAccount{}, builder.WithPredicates(p)).
 		Complete(ratelimiter.NewReconciler(name, r, o.GlobalRateLimiter))
 }
 
@@ -190,8 +197,9 @@ func (e *external) Delete(ctx context.Context, mg resource.Managed) error {
 }
 
 // isUpToDate returns true if the supplied Kubernetes resource does not differ
-//  from the supplied GCP resource. It considers only fields that can be
-//  modified in place without deleting and recreating the Service Account.
+//
+//	from the supplied GCP resource. It considers only fields that can be
+//	modified in place without deleting and recreating the Service Account.
 func isUpToDate(in *v1alpha1.ServiceAccountParameters, observed *iamv1.ServiceAccount) bool {
 	// see comment in serviceaccount_types.go
 	if in.DisplayName != nil && *in.DisplayName != observed.DisplayName {
