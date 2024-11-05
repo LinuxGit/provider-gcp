@@ -17,7 +17,9 @@ limitations under the License.
 package config
 
 import (
+	"github.com/crossplane-contrib/provider-gcp/pkg/utils/predicate"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/crossplane/crossplane-runtime/pkg/controller"
@@ -43,10 +45,15 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		providerconfig.WithLogger(o.Logger.WithValues("controller", name)),
 		providerconfig.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
 
+	p, err := predicate.SetupPredicate()
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		WithOptions(o.ForControllerRuntime()).
-		For(&v1beta1.ProviderConfig{}).
+		For(&v1beta1.ProviderConfig{}, builder.WithPredicates(p)).
 		Watches(&source.Kind{Type: &v1beta1.ProviderConfigUsage{}}, &resource.EnqueueRequestForProviderConfig{}).
 		Complete(ratelimiter.NewReconciler(name, r, o.GlobalRateLimiter))
 }
