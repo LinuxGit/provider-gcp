@@ -115,6 +115,7 @@ func main() {
 		})), "cannot create default store config")
 	}
 
+	log.Info("Start provider-gcp fork")
 	kingpin.FatalIfError(gcp.Setup(mgr, o), "Cannot setup GCP controllers")
 	kingpin.FatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")
 }
